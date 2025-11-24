@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import os
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from sklearn.metrics import (
     accuracy_score, roc_auc_score, roc_curve,
     confusion_matrix, classification_report
@@ -19,16 +19,13 @@ st.set_page_config(
     page_icon="📊",
     layout="wide"
 )
-
-st.title("📊 Bank Marketing Predictive System ")
+st.title("📊 Bank Marketing Predictive System")
 
 # ===================================
-#       FUNCIÓN GENÉRICA PARA CARGAR MODELOS
+#       FUNCIÓN PARA CARGAR MODELOS
 # ===================================
 def load_model(modelo_path: str):
-    """
-    Carga un modelo desde disco usando joblib o pickle de forma segura.
-    """
+    """Carga un modelo desde disco usando joblib o pickle de forma segura."""
     if not os.path.exists(modelo_path):
         st.error(f"❌ Archivo de modelo no encontrado: {modelo_path}")
         st.stop()
@@ -44,7 +41,7 @@ def load_model(modelo_path: str):
             st.stop()
 
 # ===================================
-#          CARGA DE MODELOS
+#       CARGA DE MODELOS
 # ===================================
 models = {
     "Logistic Regression": "logistic_regression_model.pkl",
@@ -58,7 +55,7 @@ selected_model_path = models[selected_model_name]
 model = load_model(selected_model_path)
 
 # ===================================
-#          CARGAR DATASET BASE
+#       CARGAR DATASET BASE
 # ===================================
 @st.cache_data
 def load_data():
@@ -76,32 +73,33 @@ scaler = MinMaxScaler()
 scaler.fit(data.drop("y", axis=1))
 
 # ===================================
-#       DASHBOARD VISUAL COMPLETO
+#       ANÁLISIS DESCRIPTIVO SECUENCIAL
 # ===================================
 st.header("📊 Exploratory Data Analysis")
 
-tab1, tab2, tab3 = st.tabs(["Distribuciones", "Correlaciones", "Estadísticas"])
+# Distribuciones
+st.subheader("Distribuciones de las Variables")
+fig, ax = plt.subplots(figsize=(12, 6))
+data.hist(ax=ax)
+st.pyplot(fig)
 
-with tab1:
-    st.subheader("Histogramas")
-    fig, ax = plt.subplots(figsize=(10, 5))
-    data.hist(ax=ax)
-    st.pyplot(fig)
+# Distribución de Y
+st.subheader("Distribución de la Variable Objetivo 'y'")
+fig = plt.figure(figsize=(5, 4))
+sns.countplot(data["y"])
+plt.xlabel("y")
+plt.ylabel("Count")
+st.pyplot(fig)
 
-    st.subheader("Distribución de Y")
-    fig = plt.figure(figsize=(5, 4))
-    sns.countplot(data["y"])
-    st.pyplot(fig)
+# Correlaciones
+st.subheader("Correlaciones entre Variables")
+fig = plt.figure(figsize=(12, 6))
+sns.heatmap(data.corr(), annot=True, fmt=".2f", cmap="coolwarm", cbar=True)
+st.pyplot(fig)
 
-with tab2:
-    st.subheader("Heatmap de correlaciones")
-    fig = plt.figure(figsize=(10, 6))
-    sns.heatmap(data.corr(), annot=False, cmap="coolwarm")
-    st.pyplot(fig)
-
-with tab3:
-    st.subheader("Estadísticas descriptivas")
-    st.write(data.describe())
+# Estadísticas descriptivas
+st.subheader("Estadísticas Descriptivas")
+st.dataframe(data.describe())
 
 # ===================================
 #     UPLOAD DATA PARA PREDICT / EVAL
@@ -127,10 +125,8 @@ def preprocess(df):
 def compute_metrics(model, X, y_true):
     preds = model.predict(X)
     proba = model.predict_proba(X)[:, 1]
-
     cm = confusion_matrix(y_true, preds)
     fpr, tpr, _ = roc_curve(y_true, proba)
-
     return {
         "accuracy": accuracy_score(y_true, preds),
         "auc": roc_auc_score(y_true, proba),
@@ -139,21 +135,26 @@ def compute_metrics(model, X, y_true):
         "tpr": tpr,
         "preds": preds,
         "proba": proba,
-        "report": classification_report(y_true, preds)
+        "report": classification_report(y_true, preds, output_dict=True)
     }
 
-def plot_cm(cm):
-    fig = plt.figure(figsize=(4, 3))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+def plot_cm(cm, title="Confusion Matrix"):
+    fig, ax = plt.subplots(figsize=(5, 4))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    ax.set_title(title)
     st.pyplot(fig)
 
 def plot_roc_curve(models_dict):
-    fig = plt.figure(figsize=(6, 5))
+    fig, ax = plt.subplots(figsize=(7, 5))
     for name, metrics in models_dict.items():
-        plt.plot(metrics["fpr"], metrics["tpr"], label=name)
-    plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
-    plt.legend()
-    plt.title("ROC Comparison")
+        ax.plot(metrics["fpr"], metrics["tpr"], label=f"{name} (AUC={metrics['auc']:.3f})")
+    ax.plot([0, 1], [0, 1], linestyle="--", color="gray")
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.set_title("ROC Comparison")
+    ax.legend()
     st.pyplot(fig)
 
 # ===================================
@@ -162,19 +163,22 @@ def plot_roc_curve(models_dict):
 if uploaded_file:
     test_df = pd.read_csv(uploaded_file, sep=";")
     st.subheader("📄 Datos cargados")
-    st.write(test_df.head())
+    st.dataframe(test_df.head())
 
+    # Si no hay 'y', solo predicción
     if "y" not in test_df.columns:
         st.warning("⚠️ El dataset no contiene columna 'y'. Solo se harán predicciones.")
         X_test = preprocess(test_df)
         preds = model.predict(X_test)
         proba = model.predict_proba(X_test)[:, 1]
-        st.write(pd.DataFrame({"Prediction": preds, "Probability": proba}))
+        st.subheader("Predicciones")
+        st.dataframe(pd.DataFrame({"Prediction": preds, "Probability": proba}))
     else:
         y_test = test_df["y"].map({"yes":1, "no":0}) if test_df["y"].dtype=="object" else test_df["y"]
         X_test = preprocess(test_df.drop("y", axis=1))
 
-        st.header("📊 Comparación entre modelos")
+        # Comparación de modelos
+        st.header("📊 Comparación entre Modelos")
         metrics_all = {}
         for name, path in models.items():
             this_model = load_model(path)
@@ -185,23 +189,18 @@ if uploaded_file:
             name: {"Accuracy": m["accuracy"], "AUC": m["auc"]}
             for name, m in metrics_all.items()
         }).T
-        st.write(comp_table)
+        st.dataframe(comp_table.style.background_gradient(cmap="Blues"))
 
-        # Gráfica de barras
-        fig = plt.figure(figsize=(6, 4))
-        sns.barplot(x=comp_table.index, y=comp_table["Accuracy"])
-        plt.title("Accuracy Comparison")
-        plt.xticks(rotation=30)
-        st.pyplot(fig)
-
-        # ROC comparado
+        # ROC Comparado
+        st.subheader("ROC Comparado")
         plot_roc_curve(metrics_all)
 
         # Métricas del modelo seleccionado
         st.subheader(f"📌 Evaluación detallada: {selected_model_name}")
         selected_metrics = metrics_all[selected_model_name]
-        st.code(selected_metrics["report"])
+        st.write(pd.DataFrame(selected_metrics["report"]).transpose())
 
+        # Confusion Matrix
         st.subheader("Confusion Matrix")
         plot_cm(selected_metrics["cm"])
 
@@ -210,11 +209,11 @@ if uploaded_file:
         if hasattr(model, "feature_importances_"):
             importances = model.feature_importances_
             features = test_df.drop("y", axis=1).columns
-            fig = plt.figure(figsize=(7, 5))
-            sns.barplot(x=importances, y=features)
-            plt.title("Feature Importance")
+            fi_df = pd.DataFrame({"Feature": features, "Importance": importances}).sort_values(by="Importance", ascending=True)
+            fig, ax = plt.subplots(figsize=(7, 6))
+            ax.barh(fi_df["Feature"], fi_df["Importance"], color="skyblue")
+            ax.set_title("Feature Importance")
             st.pyplot(fig)
 
 else:
     st.info("Sube un archivo CSV para comenzar el análisis.")
-
