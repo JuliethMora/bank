@@ -9,29 +9,29 @@ from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve, confusion_
 from joblib import load as joblib_load
 
 # ===================================
-#       CONFIGURACIÓN STREAMLIT
+#       STREAMLIT CONFIGURATION
 # ===================================
 st.set_page_config(
     page_title="Bank Marketing Prediction",
     page_icon="📊",
     layout="wide"
 )
-st.title("📊 Bank Marketing Predictive System – Evaluación Automática")
+st.title("📊 Bank Marketing Predictive System – Automatic Evaluation")
 
 # ===================================
-#       FUNCIÓN GENÉRICA PARA CARGAR MODELOS
+#       GENERIC MODEL LOADER
 # ===================================
 def load_model(model_path):
     if not os.path.exists(model_path):
-        return None, f"❌ No encontrado: {model_path}"
+        return None, f"❌ Not found: {model_path}"
     try:
         model = joblib_load(model_path)
         return model, None
     except Exception as e:
-        return None, f"❌ Error cargando {model_path}: {e}"
+        return None, f"❌ Error loading {model_path}: {e}"
 
 # ===================================
-#          MODELOS DISPONIBLES
+#          AVAILABLE MODELS
 # ===================================
 model_files = {
     "Logistic Regression": "logistic_regression_model.pkl",
@@ -40,7 +40,7 @@ model_files = {
 }
 
 # ===================================
-#          CARGAR DATASET BASE
+#          LOAD BASE DATASET
 # ===================================
 @st.cache_data
 def load_data():
@@ -55,38 +55,38 @@ data = load_data()
 X_base = data.drop("y", axis=1)
 y_base = data["y"]
 
-# Escalador global
+# Global scaler
 scaler = MinMaxScaler()
 X_scaled = scaler.fit_transform(X_base)
 
 # ===================================
-#      TARJETAS PRINCIPALES
+#      MAIN METRICS CARDS
 # ===================================
-st.subheader("📊 Resumen General del Dataset")
+st.subheader("📊 Dataset Summary")
 col1, col2, col3 = st.columns(3)
-col1.metric("Clientes Únicos", f"{data['y'].shape[0]}")
-col2.metric("Total Registros", f"{data.shape[0]:,}")
-col3.metric("Proporción y=1", f"{y_base.sum()/len(y_base):.2%}")
+col1.metric("Unique Clients", f"{data['y'].shape[0]}")
+col2.metric("Total Records", f"{data.shape[0]:,}")
+col3.metric("Proportion y=1", f"{y_base.sum()/len(y_base):.2%}")
 
 # ===================================
-#      DASHBOARD DE VARIABLES
+#      VARIABLE DASHBOARD
 # ===================================
-st.subheader("Distribución de Variables")
-for col in X_base.columns[:10]:  # limitar algunas columnas para no saturar
-    fig = px.histogram(data, x=col, nbins=30, title=f"Distribución de {col}")
+st.subheader("Variable Distributions")
+for col in X_base.columns[:10]:  # limit columns to avoid overcrowding
+    fig = px.histogram(data, x=col, nbins=30, title=f"Distribution of {col}")
     st.plotly_chart(fig, use_container_width=True)
 
-st.subheader("Distribución de la Variable Objetivo 'y'")
-fig = px.histogram(data, x="y", title="Distribución de y")
+st.subheader("Target Variable 'y' Distribution")
+fig = px.histogram(data, x="y", title="Target Variable Distribution")
 st.plotly_chart(fig, use_container_width=True)
 
-st.subheader("Estadísticas Descriptivas")
+st.subheader("Descriptive Statistics")
 st.dataframe(data.describe())
 
 # ===================================
-#        EVALUACIÓN DE MODELOS
+#        MODEL EVALUATION
 # ===================================
-st.header("📊 Evaluación Automática de Modelos")
+st.header("📊 Automatic Model Evaluation")
 metrics_all = {}
 failed_models = []
 
@@ -113,25 +113,25 @@ for name, path in model_files.items():
         "feature_importances": getattr(model, "feature_importances_", None)
     }
 
-# Mostrar errores de carga
+# Show loading errors
 if failed_models:
-    st.warning("Algunos modelos no se pudieron cargar:")
+    st.warning("Some models could not be loaded:")
     for msg in failed_models:
         st.warning(msg)
 
 # ===================================
-#       Métricas principales tipo st.metric
+#       MAIN METRICS USING st.metric
 # ===================================
-st.subheader("📈 Métricas Principales de Modelos")
+st.subheader("📈 Main Model Metrics")
 cols = st.columns(len(metrics_all))
 for col, (name, m) in zip(cols, metrics_all.items()):
     col.metric(label=f"{name} - Accuracy", value=f"{m['accuracy']:.4f}")
     col.metric(label=f"{name} - AUC", value=f"{m['auc']:.4f}")
 
 # ===================================
-#       ROC Curves interactivo con Plotly
+#       ROC Curves Interactive with Plotly
 # ===================================
-st.subheader("📊 Curvas ROC de los Modelos")
+st.subheader("📊 ROC Curves")
 fig = go.Figure()
 for name, m in metrics_all.items():
     if len(m['fpr']) > 0:
@@ -141,20 +141,20 @@ fig.update_layout(title="ROC Curves", xaxis_title="False Positive Rate", yaxis_t
 st.plotly_chart(fig, use_container_width=True)
 
 # ===================================
-#      Accuracy Comparación
+#      Accuracy Comparison
 # ===================================
-st.subheader("📊 Comparación de Accuracy entre Modelos")
+st.subheader("📊 Model Accuracy Comparison")
 acc_df = pd.DataFrame({
-    "Modelo": list(metrics_all.keys()),
+    "Model": list(metrics_all.keys()),
     "Accuracy": [m["accuracy"] for m in metrics_all.values()]
 })
-fig = px.bar(acc_df, x="Modelo", y="Accuracy", text="Accuracy", title="Accuracy por Modelo")
+fig = px.bar(acc_df, x="Model", y="Accuracy", text="Accuracy", title="Accuracy by Model")
 st.plotly_chart(fig, use_container_width=True)
 
 # ===================================
-#      Feature Importance (si existe)
+#      Feature Importance (if available)
 # ===================================
-st.subheader("🔍 Feature Importance (para modelos que lo soportan)")
+st.subheader("🔍 Feature Importance (for models that support it)")
 for name, m in metrics_all.items():
     if m['feature_importances'] is not None:
         fi_df = pd.DataFrame({
