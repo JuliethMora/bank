@@ -5,7 +5,7 @@ import os
 import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
-from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve, confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve, confusion_matrix
 from joblib import load as joblib_load
 
 # ===================================
@@ -60,10 +60,17 @@ scaler = MinMaxScaler()
 X_scaled = scaler.fit_transform(X_base)
 
 # ===================================
+#      TARJETAS PRINCIPALES
+# ===================================
+st.subheader("📊 Resumen General del Dataset")
+col1, col2, col3 = st.columns(3)
+col1.metric("Clientes Únicos", f"{data['y'].shape[0]}")
+col2.metric("Total Registros", f"{data.shape[0]:,}")
+col3.metric("Proporción y=1", f"{y_base.sum()/len(y_base):.2%}")
+
+# ===================================
 #      DASHBOARD DE VARIABLES
 # ===================================
-st.header("📄 Análisis Descriptivo del Dataset Base")
-
 st.subheader("Distribución de Variables")
 for col in X_base.columns[:10]:  # limitar algunas columnas para no saturar
     fig = px.histogram(data, x=col, nbins=30, title=f"Distribución de {col}")
@@ -89,17 +96,12 @@ for name, path in model_files.items():
         failed_models.append(error)
         continue
 
-    # Predicción y métricas
     preds = model.predict(X_scaled)
-    if hasattr(model, "predict_proba"):
-        proba = model.predict_proba(X_scaled)[:, 1]
-    else:
-        proba = preds  # fallback si no hay proba
+    proba = model.predict_proba(X_scaled)[:, 1] if hasattr(model, "predict_proba") else preds
 
     acc = accuracy_score(y_base, preds)
     auc = roc_auc_score(y_base, proba) if len(np.unique(y_base)) > 1 else 0
     cm = confusion_matrix(y_base, preds)
-
     fpr, tpr, _ = roc_curve(y_base, proba) if len(np.unique(y_base)) > 1 else ([], [], [])
 
     metrics_all[name] = {
@@ -120,7 +122,7 @@ if failed_models:
 # ===================================
 #       Métricas principales tipo st.metric
 # ===================================
-st.subheader("📈 Métricas Principales")
+st.subheader("📈 Métricas Principales de Modelos")
 cols = st.columns(len(metrics_all))
 for col, (name, m) in zip(cols, metrics_all.items()):
     col.metric(label=f"{name} - Accuracy", value=f"{m['accuracy']:.4f}")
@@ -161,4 +163,3 @@ for name, m in metrics_all.items():
         }).sort_values(by="Importance", ascending=True)
         fig = px.bar(fi_df, x="Importance", y="Feature", orientation='h', title=f"Feature Importance - {name}")
         st.plotly_chart(fig, use_container_width=True)
-
