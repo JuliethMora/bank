@@ -3,14 +3,13 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import pickle
 import os
-
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
 from sklearn.metrics import (
     accuracy_score, roc_auc_score, roc_curve,
     confusion_matrix, classification_report
 )
+from joblib import load as joblib_load
 
 # ===================================
 #       CONFIGURACIÓN STREAMLIT
@@ -24,32 +23,39 @@ st.set_page_config(
 st.title("📊 Bank Marketing Predictive System – Dashboard Completo")
 
 # ===================================
-#          CARGA DE MODELOS
+#       FUNCIÓN GENÉRICA PARA CARGAR MODELOS
 # ===================================
-def load_pickle_model(file_path):
-    """Carga un modelo pickle de manera segura"""
-    if not os.path.exists(file_path):
-        st.error(f"❌ Archivo no encontrado: {file_path}")
+def load_model(modelo_path: str):
+    """
+    Carga un modelo desde disco usando joblib o pickle de forma segura.
+    """
+    if not os.path.exists(modelo_path):
+        st.error(f"❌ Archivo de modelo no encontrado: {modelo_path}")
         st.stop()
     try:
-        with open(file_path, "rb") as f:
-            return pickle.load(f)
-    except Exception as e:
-        st.error(f"❌ Error cargando el modelo: {e}")
-        st.stop()
+        return joblib_load(modelo_path)
+    except Exception:
+        import pickle
+        try:
+            with open(modelo_path, "rb") as f:
+                return pickle.load(f)
+        except Exception as e:
+            st.error(f"❌ Error cargando el modelo: {e}")
+            st.stop()
 
-# Modelos en la misma carpeta que app.py
+# ===================================
+#          CARGA DE MODELOS
+# ===================================
 models = {
     "Logistic Regression": "logistic_regression_model.pkl",
     "Gradient Boosting": "gradient_boosting_model.pkl",
     "Optimized Gradient Boosting": "optimized_gradient_boosting_model.pkl"
 }
 
-# Selección de modelo
 st.sidebar.header("🛠️ Modelos Disponibles")
 selected_model_name = st.sidebar.selectbox("Selecciona un modelo:", list(models.keys()))
 selected_model_path = models[selected_model_name]
-model = load_pickle_model(selected_model_path)
+model = load_model(selected_model_path)
 
 # ===================================
 #          CARGAR DATASET BASE
@@ -171,7 +177,7 @@ if uploaded_file:
         st.header("📊 Comparación entre modelos")
         metrics_all = {}
         for name, path in models.items():
-            this_model = load_pickle_model(path)
+            this_model = load_model(path)
             metrics_all[name] = compute_metrics(this_model, X_test, y_test)
 
         # Tabla comparativa
@@ -211,3 +217,4 @@ if uploaded_file:
 
 else:
     st.info("Sube un archivo CSV para comenzar el análisis.")
+
