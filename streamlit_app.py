@@ -16,12 +16,12 @@ from sklearn.metrics import (
 #       CONFIGURACIÓN STREAMLIT
 # ===================================
 st.set_page_config(
-    page_title="Bank Prediction",
+    page_title="Bank Marketing Prediction",
     page_icon="📊",
     layout="wide"
 )
 
-st.title("📊 Bank Marketing Predictive System,Dashboard")
+st.title("📊 Bank Marketing Predictive System – Dashboard Completo")
 
 # ===================================
 #          CARGA DE MODELOS
@@ -30,9 +30,6 @@ def load_pickle_model(file_path):
     """Carga un modelo pickle de manera segura"""
     if not os.path.exists(file_path):
         st.error(f"❌ Archivo no encontrado: {file_path}")
-        st.stop()
-    if os.path.getsize(file_path) < 50:
-        st.error(f"❌ Archivo corrupto o vacío: {file_path}")
         st.stop()
     try:
         with open(file_path, "rb") as f:
@@ -168,7 +165,6 @@ if uploaded_file:
         proba = model.predict_proba(X_test)[:, 1]
         st.write(pd.DataFrame({"Prediction": preds, "Probability": proba}))
     else:
-        # Preprocess
         y_test = test_df["y"].map({"yes":1, "no":0}) if test_df["y"].dtype=="object" else test_df["y"]
         X_test = preprocess(test_df.drop("y", axis=1))
 
