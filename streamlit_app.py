@@ -33,9 +33,9 @@ def load_pickle_model(file):
 
 # Modelos iniciales
 models = {
-    "Logistic Regression": "logistic_regression_model.pkl",
-    "Gradient Boosting (Initial)": "gradient_boosting_model.pkl",
-    "Gradient Boosting (Optimized)": "optimized_gradient_boosting_model.pkl"
+    "Logistic Regression": os.path.join(BASE_DIR, "logistic_regression_model.pkl"),
+    "Gradient Boosting": os.path.join(BASE_DIR, "gradient_boosting_model.pkl"),
+    "Optimized Gradient Boosting": os.path.join(BASE_DIR, "optimized_gradient_boosting_model.pkl")
 }
 #### temp
 
