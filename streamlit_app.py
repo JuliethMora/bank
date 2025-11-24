@@ -1,6 +1,4 @@
 import streamlit as st
-
-import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,28 +13,35 @@ from sklearn.metrics import (
 )
 
 # ===================================
-#       CONFIGURACIÓN STREAMLIT
+#  DEFINIR RUTA BASE (FALTABA ESTO)
 # ===================================
-st.set_page_config(
-    page_title="Bank Marketing Prediction",
-    page_icon="📊",
-    layout="wide"
-)
-
-st.title("📊 Bank Marketing Predictive System – Dashboard Completo")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ===================================
 #          CARGA DE MODELOS
 # ===================================
-def load_pickle_model(file):
-    return pickle.load(open(file, "rb"))
+def load_pickle_model(file_path):
+    if not os.path.exists(file_path):
+        st.error(f"❌ Archivo no encontrado: {file_path}")
+        st.stop()
 
-# Modelos iniciales
+    if os.path.getsize(file_path) < 50:
+        st.error(f"❌ Archivo corrupto o vacío: {file_path}")
+        st.stop()
+
+    try:
+        with open(file_path, "rb") as f:
+            return pickle.load(f)
+    except Exception as e:
+        st.error(f"❌ Error cargando el modelo: {e}")
+        st.stop()
+
 models = {
     "Logistic Regression": os.path.join(BASE_DIR, "logistic_regression_model.pkl"),
     "Gradient Boosting": os.path.join(BASE_DIR, "gradient_boosting_model.pkl"),
     "Optimized Gradient Boosting": os.path.join(BASE_DIR, "optimized_gradient_boosting_model.pkl")
 }
+
 #### temp
 
 st.write("📁 Archivos disponibles en el directorio actual:")
