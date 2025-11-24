@@ -13,7 +13,18 @@ from sklearn.metrics import (
 )
 
 # ===================================
-#  DEFINIR RUTA BASE (FALTABA ESTO)
+#       CONFIGURACIÓN STREAMLIT
+# ===================================
+st.set_page_config(
+    page_title="Bank Marketing Prediction",
+    page_icon="📊",
+    layout="wide"
+)
+
+st.title("📊 Bank Marketing Predictive System – Dashboard Completo")
+
+# ===================================
+#  DEFINIR RUTA BASE
 # ===================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -21,6 +32,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 #          CARGA DE MODELOS
 # ===================================
 def load_pickle_model(file_path):
+    """Carga un modelo pickle de manera segura"""
     if not os.path.exists(file_path):
         st.error(f"❌ Archivo no encontrado: {file_path}")
         st.stop()
@@ -36,41 +48,15 @@ def load_pickle_model(file_path):
         st.error(f"❌ Error cargando el modelo: {e}")
         st.stop()
 
+# Modelos en la misma carpeta que app.py
 models = {
     "Logistic Regression": os.path.join(BASE_DIR, "logistic_regression_model.pkl"),
     "Gradient Boosting": os.path.join(BASE_DIR, "gradient_boosting_model.pkl"),
     "Optimized Gradient Boosting": os.path.join(BASE_DIR, "optimized_gradient_boosting_model.pkl")
 }
 
-#### temp
-
-st.write("📁 Archivos disponibles en el directorio actual:")
-st.write(os.listdir())
-
-st.write("📁 Archivos en uploaded_models (si existe):")
-if os.path.exists("uploaded_models"):
-    st.write(os.listdir("uploaded_models"))
-else:
-    st.write("No existe directorio uploaded_models")
-
-# ===================================
-#    PIPELINE PARA SUBIR NUEVOS MODELOS
-# ===================================
+# Selección de modelo
 st.sidebar.header("🛠️ Modelos Disponibles")
-
-uploaded_model = st.sidebar.file_uploader("📥 Subir modelo .pkl", type=["pkl"])
-
-if uploaded_model:
-    model_name = uploaded_model.name.replace(".pkl", "")
-    save_path = os.path.join("uploaded_models", uploaded_model.name)
-    os.makedirs("uploaded_models", exist_ok=True)
-
-    with open(save_path, "wb") as f:
-        f.write(uploaded_model.getbuffer())
-
-    models[model_name] = save_path
-    st.sidebar.success(f"Modelo '{model_name}' cargado y registrado.")
-
 selected_model_name = st.sidebar.selectbox("Selecciona un modelo:", list(models.keys()))
 selected_model_path = models[selected_model_name]
 model = load_pickle_model(selected_model_path)
@@ -80,18 +66,16 @@ model = load_pickle_model(selected_model_path)
 # ===================================
 @st.cache_data
 def load_data():
-    df = pd.read_csv("bank-additional-full.csv", sep=";")
+    df = pd.read_csv(os.path.join(BASE_DIR, "bank-additional-full.csv"), sep=";")
     df["y"] = df["y"].map({"yes": 1, "no": 0})
     le = LabelEncoder()
-
     for col in df.select_dtypes(include=["object"]).columns:
         df[col] = le.fit_transform(df[col])
-
     return df
 
 data = load_data()
 
-# Scaler global
+# Escalador global
 scaler = MinMaxScaler()
 scaler.fit(data.drop("y", axis=1))
 
@@ -139,7 +123,6 @@ def preprocess(df):
             df[col] = le.fit_transform(df[col])
         except:
             pass
-
     return scaler.transform(df)
 
 # ===================================
@@ -190,32 +173,23 @@ if uploaded_file:
         X_test = preprocess(test_df)
         preds = model.predict(X_test)
         proba = model.predict_proba(X_test)[:, 1]
-
         st.write(pd.DataFrame({"Prediction": preds, "Probability": proba}))
     else:
         # Preprocess
         y_test = test_df["y"].map({"yes":1, "no":0}) if test_df["y"].dtype=="object" else test_df["y"]
         X_test = preprocess(test_df.drop("y", axis=1))
 
-        # ================================
-        #   COMPARACIÓN ENTRE MODELOS
-        # ================================
         st.header("📊 Comparación entre modelos")
         metrics_all = {}
-
         for name, path in models.items():
             this_model = load_pickle_model(path)
             metrics_all[name] = compute_metrics(this_model, X_test, y_test)
 
         # Tabla comparativa
         comp_table = pd.DataFrame({
-            name: {
-                "Accuracy": m["accuracy"],
-                "AUC": m["auc"]
-            }
+            name: {"Accuracy": m["accuracy"], "AUC": m["auc"]}
             for name, m in metrics_all.items()
         }).T
-
         st.write(comp_table)
 
         # Gráfica de barras
@@ -231,7 +205,6 @@ if uploaded_file:
         # Métricas del modelo seleccionado
         st.subheader(f"📌 Evaluación detallada: {selected_model_name}")
         selected_metrics = metrics_all[selected_model_name]
-
         st.code(selected_metrics["report"])
 
         st.subheader("Confusion Matrix")
@@ -242,7 +215,6 @@ if uploaded_file:
         if hasattr(model, "feature_importances_"):
             importances = model.feature_importances_
             features = test_df.drop("y", axis=1).columns
-
             fig = plt.figure(figsize=(7, 5))
             sns.barplot(x=importances, y=features)
             plt.title("Feature Importance")
