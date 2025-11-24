@@ -16,12 +16,12 @@ from sklearn.metrics import (
 #       CONFIGURACIÓN STREAMLIT
 # ===================================
 st.set_page_config(
-    page_title="Bank Marketing Prediction",
+    page_title="Bank Prediction",
     page_icon="📊",
     layout="wide"
 )
 
-st.title("📊 Bank Marketing Predictive System – Dashboard Completo")
+st.title("📊 Bank Marketing Predictive System,Dashboard")
 
 # ===================================
 #          CARGA DE MODELOS
