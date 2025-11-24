@@ -37,6 +37,16 @@ models = {
     "Gradient Boosting (Initial)": "gradient_boosting_model.pkl",
     "Gradient Boosting (Optimized)": "optimized_gradient_boosting_model.pkl"
 }
+#### temp
+
+st.write("📁 Archivos disponibles en el directorio actual:")
+st.write(os.listdir())
+
+st.write("📁 Archivos en uploaded_models (si existe):")
+if os.path.exists("uploaded_models"):
+    st.write(os.listdir("uploaded_models"))
+else:
+    st.write("No existe directorio uploaded_models")
 
 # ===================================
 #    PIPELINE PARA SUBIR NUEVOS MODELOS
