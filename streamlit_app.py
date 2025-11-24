@@ -2,25 +2,18 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import os
-import warnings
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler
-from sklearn.metrics import (
-    accuracy_score, roc_auc_score, roc_curve,
-    confusion_matrix, classification_report
-)
-from joblib import load as joblib_load
 import plotly.express as px
 import plotly.graph_objects as go
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
+from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve, confusion_matrix, classification_report
+from joblib import load as joblib_load
+import warnings
 from sklearn.exceptions import InconsistentVersionWarning
 
 # ==============================
 # Configuración Streamlit
 # ==============================
-st.set_page_config(
-    page_title="Bank Marketing Prediction",
-    page_icon="📊",
-    layout="wide"
-)
+st.set_page_config(page_title="Bank Marketing Prediction", page_icon="📊", layout="wide")
 st.title("📊 Bank Marketing Predictive System")
 
 # ==============================
@@ -29,36 +22,20 @@ st.title("📊 Bank Marketing Predictive System")
 warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
 
 # ==============================
-# Función para cargar modelos
+# Función para cargar modelos de forma segura
 # ==============================
-def load_model(modelo_path: str):
-    if not os.path.exists(modelo_path):
-        st.error(f"❌ Archivo de modelo no encontrado: {modelo_path}")
+def load_model(model_path: str):
+    """
+    Carga un modelo usando joblib.
+    """
+    if not os.path.exists(model_path):
+        st.error(f"❌ Archivo de modelo no encontrado: {model_path}")
         st.stop()
     try:
-        return joblib_load(modelo_path)
-    except Exception:
-        import pickle
-        try:
-            with open(modelo_path, "rb") as f:
-                return pickle.load(f)
-        except Exception as e:
-            st.error(f"❌ Error cargando el modelo: {e}")
-            st.stop()
-
-# ==============================
-# Modelos disponibles
-# ==============================
-models = {
-    "Logistic Regression": "logistic_regression_model.pkl",
-    "Gradient Boosting": "gradient_boosting_model.pkl",
-    "Optimized Gradient Boosting": "optimized_gradient_boosting_model.pkl"
-}
-
-st.sidebar.header("🛠️ Modelos Disponibles")
-selected_model_name = st.sidebar.selectbox("Selecciona un modelo:", list(models.keys()))
-selected_model_path = models[selected_model_name]
-model = load_model(selected_model_path)
+        return joblib_load(model_path)
+    except Exception as e:
+        st.error(f"❌ Error cargando el modelo {model_path}: {e}")
+        st.stop()
 
 # ==============================
 # Cargar dataset base
@@ -73,6 +50,8 @@ def load_data():
     return df
 
 data = load_data()
+
+# Escalador global para los modelos
 scaler = MinMaxScaler()
 scaler.fit(data.drop("y", axis=1))
 
@@ -80,82 +59,93 @@ scaler.fit(data.drop("y", axis=1))
 # Preprocesamiento
 # ==============================
 def preprocess(df):
+    df_clean = df.copy()
     le = LabelEncoder()
-    for col in df.select_dtypes(include=["object"]).columns:
+    for col in df_clean.select_dtypes(include=["object"]).columns:
         try:
-            df[col] = le.fit_transform(df[col])
+            df_clean[col] = le.fit_transform(df_clean[col])
         except:
             pass
-    return scaler.transform(df)
+    X_scaled = scaler.transform(df_clean.drop("y", axis=1))
+    return X_scaled, df_clean["y"]
 
 # ==============================
-# Métricas y gráficos
+# Función genérica para evaluar modelo
 # ==============================
-def compute_metrics(model, X, y_true):
+def evaluar_modelo(model_path: str, df: pd.DataFrame):
+    """
+    Carga el modelo, predice sobre df y devuelve métricas y predicciones.
+    """
+    model = load_model(model_path)
+    X, y = preprocess(df)
+    
     preds = model.predict(X)
-    proba = model.predict_proba(X)[:, 1]
-    cm = confusion_matrix(y_true, preds)
-    fpr, tpr, _ = roc_curve(y_true, proba)
+    proba = model.predict_proba(X)[:, 1] if hasattr(model, "predict_proba") else preds
+    cm = confusion_matrix(y, preds)
+    fpr, tpr, _ = roc_curve(y, proba) if hasattr(model, "predict_proba") else ([], [], [])
+    report_dict = classification_report(y, preds, output_dict=True)
+    
+    feature_importances = model.feature_importances_ if hasattr(model, "feature_importances_") else None
+    
     return {
-        "accuracy": accuracy_score(y_true, preds),
-        "auc": roc_auc_score(y_true, proba),
+        "model": model,
+        "preds": preds,
+        "proba": proba,
         "cm": cm,
         "fpr": fpr,
         "tpr": tpr,
-        "preds": preds,
-        "proba": proba,
-        "report": classification_report(y_true, preds, output_dict=True)
+        "accuracy": accuracy_score(y, preds),
+        "auc": roc_auc_score(y, proba) if hasattr(model, "predict_proba") else None,
+        "report": report_dict,
+        "feature_importances": feature_importances,
+        "y_true": y
     }
 
 # ==============================
-# Dataset base: estadísticas descriptivas
+# Modelos disponibles
 # ==============================
-st.header("📊 Estadísticas Descriptivas del Dataset Base")
+models = {
+    "Logistic Regression": "logistic_regression_model.pkl",
+    "Gradient Boosting": "gradient_boosting_model.pkl",
+    "Optimized Gradient Boosting": "optimized_gradient_boosting_model.pkl"
+}
 
-# Histogramas interactivos
-for col in data.select_dtypes(include=np.number).columns:
-    fig = px.histogram(data, x=col, nbins=50, title=f"Distribución de {col}")
-    st.plotly_chart(fig, use_container_width=True)
-
-# Distribución de y
-fig = px.histogram(data, x="y", color="y", title="Distribución de la variable objetivo 'y'")
-st.plotly_chart(fig, use_container_width=True)
-
-# Tabla descriptiva
-st.dataframe(data.describe())
+st.sidebar.header("🛠️ Modelos Disponibles")
+selected_model_name = st.sidebar.selectbox("Selecciona un modelo:", list(models.keys()))
 
 # ==============================
 # Evaluación automática con dataset base
 # ==============================
-st.header("📈 Evaluación Automática de Modelos con Dataset Base")
-
-X_base = preprocess(data.drop("y", axis=1))
-y_base = data["y"]
-
+st.header("📈 Evaluación Automática con Dataset Base")
 metrics_all = {}
 for name, path in models.items():
-    this_model = load_model(path)
-    metrics_all[name] = compute_metrics(this_model, X_base, y_base)
+    metrics_all[name] = evaluar_modelo(path, data)
 
-# Mostrar métricas principales usando st.metric
-st.subheader("Métricas Principales")
-col1, col2, col3 = st.columns(3)
+# Métricas principales usando st.metric
+st.subheader(f"Métricas principales: {selected_model_name}")
 selected_metrics = metrics_all[selected_model_name]
+col1, col2, col3 = st.columns(3)
 col1.metric("Accuracy", f"{selected_metrics['accuracy']*100:.2f}%")
-col2.metric("AUC", f"{selected_metrics['auc']*100:.2f}%")
+col2.metric("AUC", f"{selected_metrics['auc']*100:.2f}%" if selected_metrics['auc'] else "N/A")
 col3.metric("Total Registros", f"{len(data):,}")
 
-# ROC comparada con Plotly
+# ==============================
+# ROC comparada
+# ==============================
+st.subheader("ROC Comparada")
 fig = go.Figure()
 for name, metrics in metrics_all.items():
-    fig.add_trace(go.Scatter(x=metrics['fpr'], y=metrics['tpr'], mode='lines',
-                             name=f"{name} (AUC={metrics['auc']:.3f})"))
+    if metrics['fpr'] != []:
+        fig.add_trace(go.Scatter(x=metrics['fpr'], y=metrics['tpr'], mode='lines',
+                                 name=f"{name} (AUC={metrics['auc']:.3f})"))
 fig.add_trace(go.Scatter(x=[0,1], y=[0,1], mode='lines', line=dict(dash='dash', color='gray')))
 fig.update_layout(title="ROC Curve Comparada", xaxis_title="False Positive Rate",
                   yaxis_title="True Positive Rate", template="plotly_white")
 st.plotly_chart(fig, use_container_width=True)
 
+# ==============================
 # Confusion Matrix
+# ==============================
 st.subheader("Confusion Matrix")
 cm = selected_metrics['cm']
 cm_fig = go.Figure(data=go.Heatmap(
@@ -169,57 +159,30 @@ cm_fig = go.Figure(data=go.Heatmap(
 cm_fig.update_layout(title="Confusion Matrix", template="plotly_white")
 st.plotly_chart(cm_fig, use_container_width=True)
 
+# ==============================
 # Feature Importance
+# ==============================
 st.subheader("🔍 Feature Importance")
-if hasattr(model, "feature_importances_"):
-    importances = model.feature_importances_
+if selected_metrics['feature_importances'] is not None:
+    importances = selected_metrics['feature_importances']
     features = data.drop("y", axis=1).columns
     fi_df = pd.DataFrame({"Feature": features, "Importance": importances}).sort_values("Importance", ascending=True)
-    fig = px.bar(fi_df, x="Importance", y="Feature", orientation='h', title="Feature Importance", color="Importance",
-                 color_continuous_scale="Blues")
+    fig = px.bar(fi_df, x="Importance", y="Feature", orientation='h', title="Feature Importance",
+                 color="Importance", color_continuous_scale="Blues")
     st.plotly_chart(fig, use_container_width=True)
 
 # ==============================
-# Subida opcional de CSV
+# Estadísticas descriptivas
 # ==============================
-st.sidebar.header("📥 Cargar dataset para evaluar")
-uploaded_file = st.sidebar.file_uploader("Selecciona un CSV", type=["csv"])
+st.header("📊 Estadísticas descriptivas")
+st.dataframe(data.describe())
 
-if uploaded_file:
-    test_df = pd.read_csv(uploaded_file, sep=";")
-    st.subheader("📄 Datos cargados")
-    st.write(test_df.head())
+# Histogramas interactivos
+st.subheader("Distribución de Variables")
+for col in data.select_dtypes(include=np.number).columns:
+    fig = px.histogram(data, x=col, nbins=50, title=f"Distribución de {col}")
+    st.plotly_chart(fig, use_container_width=True)
 
-    if "y" not in test_df.columns:
-        st.warning("⚠️ El dataset no contiene columna 'y'. Solo se harán predicciones.")
-        X_test = preprocess(test_df)
-        preds = model.predict(X_test)
-        proba = model.predict_proba(X_test)[:, 1]
-        st.dataframe(pd.DataFrame({"Prediction": preds, "Probability": proba}))
-    else:
-        y_test = test_df["y"].map({"yes":1, "no":0}) if test_df["y"].dtype=="object" else test_df["y"]
-        X_test = preprocess(test_df.drop("y", axis=1))
-
-        st.header("📊 Evaluación de Modelos con Dataset Subido")
-        metrics_all_uploaded = {}
-        for name, path in models.items():
-            this_model = load_model(path)
-            metrics_all_uploaded[name] = compute_metrics(this_model, X_test, y_test)
-
-        # Métricas principales tipo st.metric
-        st.subheader("Métricas Principales (CSV Subido)")
-        selected_metrics_uploaded = metrics_all_uploaded[selected_model_name]
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Accuracy", f"{selected_metrics_uploaded['accuracy']*100:.2f}%")
-        col2.metric("AUC", f"{selected_metrics_uploaded['auc']*100:.2f}%")
-        col3.metric("Total Registros", f"{len(test_df):,}")
-
-        # ROC comparada con Plotly
-        fig = go.Figure()
-        for name, metrics in metrics_all_uploaded.items():
-            fig.add_trace(go.Scatter(x=metrics['fpr'], y=metrics['tpr'], mode='lines',
-                                     name=f"{name} (AUC={metrics['auc']:.3f})"))
-        fig.add_trace(go.Scatter(x=[0,1], y=[0,1], mode='lines', line=dict(dash='dash', color='gray')))
-        fig.update_layout(title="ROC Curve Comparada (CSV Subido)", xaxis_title="False Positive Rate",
-                          yaxis_title="True Positive Rate", template="plotly_white")
-        st.plotly_chart(fig, use_container_width=True)
+# Distribución de y
+fig = px.histogram(data, x="y", color="y", title="Distribución de la variable objetivo 'y'")
+st.plotly_chart(fig, use_container_width=True)
