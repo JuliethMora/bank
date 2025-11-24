@@ -10,7 +10,7 @@ seaborn==0.13.2
 plotly==5.19.0
 
 # Machine Learning / Modelado
-scikit-learn==1.4.1.post1
+scikit-learn==1.6.1
 xgboost==2.0.3
 lightgbm==4.2.0
 catboost==1.2.3
