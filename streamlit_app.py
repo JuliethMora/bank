@@ -24,11 +24,6 @@ st.set_page_config(
 st.title("📊 Bank Marketing Predictive System – Dashboard Completo")
 
 # ===================================
-#  DEFINIR RUTA BASE
-# ===================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# ===================================
 #          CARGA DE MODELOS
 # ===================================
 def load_pickle_model(file_path):
@@ -36,11 +31,9 @@ def load_pickle_model(file_path):
     if not os.path.exists(file_path):
         st.error(f"❌ Archivo no encontrado: {file_path}")
         st.stop()
-
     if os.path.getsize(file_path) < 50:
         st.error(f"❌ Archivo corrupto o vacío: {file_path}")
         st.stop()
-
     try:
         with open(file_path, "rb") as f:
             return pickle.load(f)
@@ -50,9 +43,9 @@ def load_pickle_model(file_path):
 
 # Modelos en la misma carpeta que app.py
 models = {
-    "Logistic Regression": os.path.join(BASE_DIR, "logistic_regression_model.pkl"),
-    "Gradient Boosting": os.path.join(BASE_DIR, "gradient_boosting_model.pkl"),
-    "Optimized Gradient Boosting": os.path.join(BASE_DIR, "optimized_gradient_boosting_model.pkl")
+    "Logistic Regression": "logistic_regression_model.pkl",
+    "Gradient Boosting": "gradient_boosting_model.pkl",
+    "Optimized Gradient Boosting": "optimized_gradient_boosting_model.pkl"
 }
 
 # Selección de modelo
@@ -66,7 +59,7 @@ model = load_pickle_model(selected_model_path)
 # ===================================
 @st.cache_data
 def load_data():
-    df = pd.read_csv(os.path.join(BASE_DIR, "bank-additional-full.csv"), sep=";")
+    df = pd.read_csv("bank-additional-full.csv", sep=";")
     df["y"] = df["y"].map({"yes": 1, "no": 0})
     le = LabelEncoder()
     for col in df.select_dtypes(include=["object"]).columns:
