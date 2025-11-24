@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import plotly.express as px
 import os
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from sklearn.metrics import (
@@ -77,27 +78,29 @@ scaler.fit(data.drop("y", axis=1))
 # ===================================
 st.header("📊 Exploratory Data Analysis")
 
-# Distribuciones
+# --- Paso 1: Métricas rápidas ---
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Clientes", value=f"{len(data)}")
+col2.metric("Total Variables", value=f"{data.shape[1]}")
+col3.metric("Proporción Y=1", value=f"{data['y'].mean():.2%}")
+
+# --- Paso 2: Histogramas ---
 st.subheader("Distribuciones de las Variables")
-fig, ax = plt.subplots(figsize=(12, 6))
-data.hist(ax=ax)
-st.pyplot(fig)
+for col in data.drop("y", axis=1).columns[:10]:  # Mostrar solo primeras 10 para no saturar
+    fig = px.histogram(data, x=col, nbins=30, title=f"Distribución de {col}", template="plotly_white")
+    st.plotly_chart(fig, use_container_width=True)
 
-# Distribución de Y
+# --- Paso 3: Distribución de Y ---
 st.subheader("Distribución de la Variable Objetivo 'y'")
-fig = plt.figure(figsize=(5, 4))
-sns.countplot(data["y"])
-plt.xlabel("y")
-plt.ylabel("Count")
-st.pyplot(fig)
+fig = px.histogram(data, x="y", color="y", title="Distribución de Y", template="plotly_white")
+st.plotly_chart(fig, use_container_width=True)
 
-# Correlaciones
+# --- Paso 4: Correlaciones ---
 st.subheader("Correlaciones entre Variables")
-fig = plt.figure(figsize=(12, 6))
-sns.heatmap(data.corr(), annot=True, fmt=".2f", cmap="coolwarm", cbar=True)
-st.pyplot(fig)
+fig = px.imshow(data.corr(), text_auto=True, aspect="auto", color_continuous_scale="RdBu_r")
+st.plotly_chart(fig, use_container_width=True)
 
-# Estadísticas descriptivas
+# --- Paso 5: Estadísticas descriptivas ---
 st.subheader("Estadísticas Descriptivas")
 st.dataframe(data.describe())
 
@@ -165,7 +168,6 @@ if uploaded_file:
     st.subheader("📄 Datos cargados")
     st.dataframe(test_df.head())
 
-    # Si no hay 'y', solo predicción
     if "y" not in test_df.columns:
         st.warning("⚠️ El dataset no contiene columna 'y'. Solo se harán predicciones.")
         X_test = preprocess(test_df)
@@ -184,7 +186,7 @@ if uploaded_file:
             this_model = load_model(path)
             metrics_all[name] = compute_metrics(this_model, X_test, y_test)
 
-        # Tabla comparativa
+        # Tabla comparativa con metricas visuales
         comp_table = pd.DataFrame({
             name: {"Accuracy": m["accuracy"], "AUC": m["auc"]}
             for name, m in metrics_all.items()
@@ -198,7 +200,7 @@ if uploaded_file:
         # Métricas del modelo seleccionado
         st.subheader(f"📌 Evaluación detallada: {selected_model_name}")
         selected_metrics = metrics_all[selected_model_name]
-        st.write(pd.DataFrame(selected_metrics["report"]).transpose())
+        st.dataframe(pd.DataFrame(selected_metrics["report"]).transpose())
 
         # Confusion Matrix
         st.subheader("Confusion Matrix")
