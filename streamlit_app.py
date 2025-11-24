@@ -20,7 +20,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📊 Bank Marketing Predictive System – Dashboard Completo")
+st.title("📊 Bank Marketing Predictive System ")
 
 # ===================================
 #       FUNCIÓN GENÉRICA PARA CARGAR MODELOS
@@ -78,7 +78,7 @@ scaler.fit(data.drop("y", axis=1))
 # ===================================
 #       DASHBOARD VISUAL COMPLETO
 # ===================================
-st.header("📊 Exploratory Data Analysis Dashboard")
+st.header("📊 Exploratory Data Analysis")
 
 tab1, tab2, tab3 = st.tabs(["Distribuciones", "Correlaciones", "Estadísticas"])
 
